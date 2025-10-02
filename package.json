@@ -1,0 +1,8 @@
+{
+  "name": "ready-agents-dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard for monitoring ready agents",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}
