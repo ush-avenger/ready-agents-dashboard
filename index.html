@@ -1,36 +1,423 @@
-// Ganti semua google.script.run dengan fetch API
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DH Insurance & PLATINUM Ready Agents</title>
+  <style>
+    /* CSS yang sama seperti sebelumnya */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    h2 {
+      color: #34495e;
+      border-bottom: 2px solid #ecf0f1;
+      text-align: center;
+      padding-bottom: 10px;
+      margin-top: 30px;
+    }
+    .section {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+    }
+    .count {
+      font-size: 48px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .positive {
+      color: #d32f2f;
+    }
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .state-card {
+      padding: 10px;
+      border-radius: 5px;
+      text-align: center;
+      background-color: #f8f9fa;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+    .state-card.available {
+      background-color: #ffebee;
+      border: 2px solid #f44336;
+    }
+    .state-code {
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+    .agent-count {
+      font-size: 18px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .agent-count.available {
+      color: #d32f2f;
+    }
+    .error {
+      color: #e74c3c;
+    }
+    .last-updated {
+      text-align: center;
+      color: #7f8c8d;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+    .refreshing {
+      text-align: center;
+      color: #7f8c8d;
+      margin-top: 10px;
+      font-style: italic;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #7f8c8d;
+    }
+    .summary {
+      text-align: center;
+      margin: 15px 0;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .summary.highlight {
+      color: #d32f2f;
+      font-size: 18px;
+    }
+    .controls {
+      text-align: center;
+      margin: 20px 0;
+    }
+    #refresh-btn {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>DH Insurance & PLATINUM Ready Agents</h1>
+    
+    <!-- Controls Section -->
+    <div class="controls">
+      <button id="refresh-btn">Refresh Now</button>
+      <label>
+        <input type="checkbox" id="auto-refresh" checked> 
+        Auto-refresh every 10 seconds
+      </label>
+    </div>
+    
+    <!-- GUARDIANS Section -->
+    <div class="section">
+      <h2>GUARDIANS Ready Agents</h2>
+      <div id="guardians-count" class="count loading">Loading...</div>
+    </div>
+    
+    <!-- PLATINUM Section -->
+    <div class="section">
+      <h2>PLATINUM Ready Agents</h2>
+      <div id="platinum-count" class="count loading">Loading...</div>
+    </div>
+    
+    <!-- DH Insurance Section -->
+    <h2>DH Insurance Ready Agents</h2>
+    <div id="summary" class="summary"></div>
+    <div id="state-container" class="state-grid">
+      <div class="loading">Loading data...</div>
+    </div>
+    
+    <div id="last-updated" class="last-updated"></div>
+    <div id="refreshing-message" class="refreshing"></div>
+  </div>
 
-async function refreshData() {
-  const stateContainer = document.getElementById('state-container');
-  const platinumCount = document.getElementById('platinum-count');
-  const guardiansCount = document.getElementById('guardians-count');
-  
-  // Show loading states
-  stateContainer.innerHTML = '<div class="loading">Refreshing data...</div>';
-  platinumCount.className = 'count loading';
-  platinumCount.textContent = 'Loading...';
-  guardiansCount.className = 'count loading';
-  guardiansCount.textContent = 'Loading...';
-  
-  document.getElementById('refreshing-message').textContent = 'Refreshing data...';
-  document.getElementById('summary').textContent = '';
-  
-  try {
-    // Fetch all data concurrently
-    const [guardiansData, platinumData, dhData] = await Promise.all([
-      fetch('/api/guardians').then(r => r.json()),
-      fetch('/api/platinum').then(r => r.json()),
-      fetch('/api/dh-insurance').then(r => r.json())
-    ]);
-    
-    const combinedData = {
-      guardians: guardiansData.ready,
-      platinum: platinumData.available_agents,
-      dhStates: dhData
-    };
-    
-    displayData(combinedData);
-  } catch (error) {
-    showError(error);
-  }
-}
+  <script>
+    let refreshInterval;
+    let autoRefreshEnabled = true;
+
+    // CORS Proxy untuk menghindari CORS issues
+    const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        refreshData();
+        setupAutoRefresh();
+        
+        document.getElementById('refresh-btn').addEventListener('click', refreshData);
+        document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
+    });
+
+    function setupAutoRefresh() {
+        if (autoRefreshEnabled) {
+            refreshInterval = setInterval(refreshData, 10000);
+        }
+    }
+
+    function toggleAutoRefresh() {
+        const checkbox = document.getElementById('auto-refresh');
+        autoRefreshEnabled = checkbox.checked;
+        
+        if (autoRefreshEnabled) {
+            refreshInterval = setInterval(refreshData, 10000);
+        } else {
+            clearInterval(refreshInterval);
+        }
+    }
+
+    async function refreshData() {
+        showLoadingState();
+        
+        try {
+            const [guardiansData, platinumData, dhData] = await Promise.all([
+                getGuardiansData(),
+                getPlatinumData(),
+                getDHInsuranceData()
+            ]);
+            
+            const combinedData = {
+                guardians: guardiansData,
+                platinum: platinumData,
+                dhStates: dhData
+            };
+            
+            displayData(combinedData);
+        } catch (error) {
+            showError(error);
+        }
+    }
+
+    // GUARDIANS API Call
+    async function getGuardiansData() {
+        try {
+            const url = "https://rhp.tldcrm.com/api/public/dialer/ready?ava=1&ing=SRI_FL&que=1&cnt=true&act=true";
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.ready || 0;
+        } catch (error) {
+            console.error("GUARDIANS Error:", error);
+            return null;
+        }
+    }
+
+    // PLATINUM API Call
+    async function getPlatinumData() {
+        try {
+            const url = "https://api.convoso.com/v1/agent-monitor/search?auth_token=u7c5poz5n01ia0y2gquz943l6drh914t&&queue_id=4159";
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.data.available_agents;
+        } catch (error) {
+            console.error("PLATINUM Error:", error);
+            return null;
+        }
+    }
+
+    // DH Insurance API Call
+    async function getDHInsuranceData() {
+        const states = {
+            "IL": "18475555555",
+            "SC": "18035555555", 
+            "WA": "15095555555",
+            "CO": "13035555555",
+            "OH": "14045555555",
+            "VA": "17035555555",
+            "GA": "12295555555",
+            "AZ": "15205555555",
+            "PA": "16105555555",
+            "MI": "16165555555",
+            "TN": "14235555555",
+            "KS": "17855555555",
+            "LA": "13375555555",
+            "OK": "19185555555",
+            "ME": "12075555555",
+            "FL": "13865555555",
+            "MS": "17695555555"
+        };
+        
+        const results = [];
+        
+        for (const [state, phoneNumber] of Object.entries(states)) {
+            try {
+                const url = `https://dhig.tldcrm.com/api/public/dialer/ready/1${phoneNumber}?ava=1&ing=SRMEDI_&sta=true&cnt=true&act=true`;
+                const response = await fetch(url);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    results.push({
+                        state: state,
+                        ready: data.ready,
+                        error: null
+                    });
+                } else {
+                    results.push({
+                        state: state,
+                        ready: null,
+                        error: `HTTP Error: ${response.status}`
+                    });
+                }
+            } catch (error) {
+                results.push({
+                    state: state,
+                    ready: null,
+                    error: error.message
+                });
+            }
+        }
+        
+        return results;
+    }
+
+    function showLoadingState() {
+        const stateContainer = document.getElementById('state-container');
+        const platinumCount = document.getElementById('platinum-count');
+        const guardiansCount = document.getElementById('guardians-count');
+        
+        stateContainer.innerHTML = '<div class="loading">Refreshing data...</div>';
+        platinumCount.className = 'count loading';
+        platinumCount.textContent = 'Loading...';
+        guardiansCount.className = 'count loading';
+        guardiansCount.textContent = 'Loading...';
+        
+        document.getElementById('refreshing-message').textContent = 'Refreshing data...';
+        document.getElementById('summary').textContent = '';
+    }
+
+    function displayData(data) {
+        // Update GUARDIANS
+        updateCountElement(document.getElementById('guardians-count'), data.guardians);
+        
+        // Update PLATINUM
+        updateCountElement(document.getElementById('platinum-count'), data.platinum);
+        
+        // Update DH Insurance
+        updateDHInsuranceData(data.dhStates);
+        
+        // Update timestamp
+        updateTimestamp();
+        
+        document.getElementById('refreshing-message').textContent = '';
+    }
+
+    function updateCountElement(element, count) {
+        element.classList.remove('loading', 'positive', 'error');
+        
+        if (typeof count === 'number') {
+            element.textContent = count;
+            if (count > 0) {
+                element.classList.add('positive');
+            }
+        } else {
+            element.textContent = 'Error';
+            element.classList.add('error');
+        }
+    }
+
+    function updateDHInsuranceData(dhStates) {
+        const stateContainer = document.getElementById('state-container');
+        stateContainer.innerHTML = '';
+        
+        let availableStates = 0;
+        
+        dhStates.forEach(result => {
+            const stateElement = document.createElement('div');
+            stateElement.className = 'state-card';
+            
+            const stateCode = document.createElement('div');
+            stateCode.className = 'state-code';
+            stateCode.textContent = result.state;
+            
+            const agentCount = document.createElement('div');
+            agentCount.className = 'agent-count';
+            
+            if (result.error) {
+                agentCount.textContent = 'Error';
+                agentCount.classList.add('error');
+            } else {
+                agentCount.textContent = result.ready;
+                
+                if (result.ready > 0) {
+                    stateElement.classList.add('available');
+                    agentCount.classList.add('available');
+                    availableStates++;
+                }
+            }
+            
+            stateElement.appendChild(stateCode);
+            stateElement.appendChild(agentCount);
+            stateContainer.appendChild(stateElement);
+        });
+        
+        updateSummary(availableStates, dhStates.length);
+    }
+
+    function updateSummary(availableStates, totalStates) {
+        const summaryElement = document.getElementById('summary');
+        
+        if (availableStates > 0) {
+            summaryElement.textContent = `${availableStates} state(s) have agents available!`;
+            summaryElement.classList.add('highlight');
+        } else {
+            summaryElement.textContent = 'No agents currently available';
+            summaryElement.classList.remove('highlight');
+        }
+    }
+
+    function updateTimestamp() {
+        const now = new Date();
+        document.getElementById('last-updated').textContent = 
+            `Last updated: ${now.toLocaleTimeString()}`;
+    }
+
+    function showError(error) {
+        const stateContainer = document.getElementById('state-container');
+        const platinumCount = document.getElementById('platinum-count');
+        const guardiansCount = document.getElementById('guardians-count');
+        
+        stateContainer.innerHTML = '<div class="error">Error loading data</div>';
+        platinumCount.textContent = 'Error';
+        platinumCount.className = 'count error';
+        guardiansCount.textContent = 'Error';
+        guardiansCount.className = 'count error';
+        
+        document.getElementById('refreshing-message').textContent = '';
+        console.error('App Error:', error);
+    }
+  </script>
+</body>
+</html>
