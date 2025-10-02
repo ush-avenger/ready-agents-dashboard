@@ -1,7 +1,6 @@
 {
-  "name": "ready-agents-dashboard",
+  "name": "netlify-functions",
   "version": "1.0.0",
-  "description": "Dashboard for monitoring ready agents",
   "dependencies": {
     "node-fetch": "^2.6.7"
   }
