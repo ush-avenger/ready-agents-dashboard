@@ -1,0 +1,36 @@
+// Ganti semua google.script.run dengan fetch API
+
+async function refreshData() {
+  const stateContainer = document.getElementById('state-container');
+  const platinumCount = document.getElementById('platinum-count');
+  const guardiansCount = document.getElementById('guardians-count');
+  
+  // Show loading states
+  stateContainer.innerHTML = '<div class="loading">Refreshing data...</div>';
+  platinumCount.className = 'count loading';
+  platinumCount.textContent = 'Loading...';
+  guardiansCount.className = 'count loading';
+  guardiansCount.textContent = 'Loading...';
+  
+  document.getElementById('refreshing-message').textContent = 'Refreshing data...';
+  document.getElementById('summary').textContent = '';
+  
+  try {
+    // Fetch all data concurrently
+    const [guardiansData, platinumData, dhData] = await Promise.all([
+      fetch('/api/guardians').then(r => r.json()),
+      fetch('/api/platinum').then(r => r.json()),
+      fetch('/api/dh-insurance').then(r => r.json())
+    ]);
+    
+    const combinedData = {
+      guardians: guardiansData.ready,
+      platinum: platinumData.available_agents,
+      dhStates: dhData
+    };
+    
+    displayData(combinedData);
+  } catch (error) {
+    showError(error);
+  }
+}
